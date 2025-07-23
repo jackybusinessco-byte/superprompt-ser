@@ -85,8 +85,11 @@ async function extractEmailFromEvent(event: { type: string; data: { object: any 
       
     case 'customer.subscription.deleted':
     case 'customer.subscription.updated':
-      // For subscription events, try to get email from customer object
-      return data.object.customer?.email || 
+      // Handle subscription events - need to get customer email
+      console.log('🔍 Subscription event - customer ID:', data.object.customer)
+      // For subscription events, we typically need to fetch customer details from Stripe API
+      // For now, try to find email in the object or use customer ID
+      return data.object.customer_email || 
              data.object.metadata?.email ||
              null
       
@@ -97,14 +100,15 @@ async function extractEmailFromEvent(event: { type: string; data: { object: any 
              data.object?.customer_email || 
              data.object?.billing_details?.email || 
              data.object?.customer_details?.email || 
+             data.object?.metadata?.email ||
              null
   }
 }
 
-// Helper function to downgrade user to non-pro
-async function downgradeUserToNonPro(email: string, eventType: string) {
+// Helper function to cancel user subscription in Supabase
+async function cancelUserSubscription(email: string, eventType: string) {
   try {
-    console.log('📉 Downgrading user to non-pro:', email)
+    console.log('🚫 Attempting to cancel subscription for email:', email)
     
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -113,36 +117,38 @@ async function downgradeUserToNonPro(email: string, eventType: string) {
       return null
     }
     
-    // Update user to non-pro in Supabase
+    // Update user to set isPro to false
     const { data, error } = await supabase
       .from('Users')
       .update({ isPro: false })
       .eq('email', email)
       .select()
-    
+        
     if (error) {
-      console.error('❌ Failed to downgrade user in Supabase:', error)
-      console.error('Downgrade error details:', {
+      console.error('❌ Failed to cancel subscription in Supabase:', error)
+      console.error('Error details:', {
         message: error.message,
         details: error.details,
         code: error.code
       })
       
       // Log to file as backup
-      await logEmailToFile(`${email} (DOWNGRADE)`, eventType)
+      console.log('💾 Saving cancellation to file as backup...')
+      await logEmailToFile(email, eventType + '_cancellation')
+      
       throw error
     } else {
-      console.log('✅ User successfully downgraded in Supabase:', data)
+      console.log('✅ Subscription cancelled in Supabase:', data)
       return data
     }
   } catch (error) {
-    console.error('❌ Error downgrading user:', error)
+    console.error('❌ Error cancelling subscription in Supabase:', error)
     
     // Always try to log to file as backup
     try {
-      await logEmailToFile(`${email} (DOWNGRADE)`, eventType)
+      await logEmailToFile(email, eventType + '_cancellation')
     } catch (fileError) {
-      console.error('Failed to save downgrade to backup file:', fileError)
+      console.error('Failed to save cancellation to backup file:', fileError)
     }
     
     throw error
@@ -173,7 +179,7 @@ async function saveUserToSupabase(email: string, eventType: string) {
     
     // If insert fails due to duplicate, try update
     if (error && error.code === '23505') {
-      console.log('🔄 Email exists, updating existing user to pro...')
+      console.log('🔄 Email exists, updating instead...')
       const { data: updateData, error: updateError } = await supabase
         .from('Users')
         .update({ isPro: true })
@@ -181,11 +187,9 @@ async function saveUserToSupabase(email: string, eventType: string) {
         .select()
         
       if (updateError) {
-        console.error('❌ Failed to update existing user:', updateError)
         throw updateError
       }
       
-      console.log('✅ Existing user updated to pro:', updateData)
       return updateData
     }
 
@@ -346,40 +350,18 @@ export async function POST(request: NextRequest) {
         break
         
       case 'customer.subscription.deleted':
-        console.log('📉 Customer subscription deleted:', event.data.object.id)
+        console.log('🚫 Subscription cancelled:', event.data.object.id)
         if (email) {
           try {
-            await downgradeUserToNonPro(email, event.type)
+            await cancelUserSubscription(email, event.type)
+            console.log('✅ User subscription cancelled successfully')
           } catch {
-            console.log('⚠️ Downgrade failed but logged to file')
+            console.log('⚠️ Failed to cancel subscription but logged to file')
           }
         } else {
-          console.warn('⚠️ No email found in subscription.deleted event - check customer ID:', event.data.object.customer)
-        }
-        break
-        
-      case 'customer.subscription.updated':
-        console.log('🔄 Customer subscription updated:', event.data.object.id)
-        const subscriptionStatus = event.data.object.status
-        
-        if (email) {
-          if (subscriptionStatus === 'canceled' || subscriptionStatus === 'unpaid' || subscriptionStatus === 'past_due') {
-            console.log('📉 Subscription inactive, downgrading user')
-            try {
-              await downgradeUserToNonPro(email, event.type)
-            } catch {
-              console.log('⚠️ Downgrade failed but logged to file')
-            }
-          } else if (subscriptionStatus === 'active') {
-            console.log('📈 Subscription active, upgrading user')
-            try {
-              await saveUserToSupabase(email, event.type)
-            } catch {
-              console.log('⚠️ Upgrade failed but logged to file')
-            }
-          }
-        } else {
-          console.warn('⚠️ No email found in subscription.updated event - check customer ID:', event.data.object.customer)
+          console.warn('⚠️ No email found in customer.subscription.deleted event')
+          console.log('🔍 Customer ID:', event.data.object.customer)
+          console.log('🔍 Full subscription object:', JSON.stringify(event.data.object, null, 2))
         }
         break
         

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { appendFile } from 'fs/promises'
 import { join } from 'path'
+import Stripe from 'stripe'
+
 
 // Helper function to log email to file as backup
 async function logEmailToFile(email: string, eventType: string) {
@@ -234,6 +236,11 @@ async function saveUserToSupabase(email: string, eventType: string) {
   }
 }
 
+// Initialize Stripe with secret key
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-06-30.basil',
+})
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text()
@@ -351,9 +358,22 @@ export async function POST(request: NextRequest) {
         
       case 'customer.subscription.deleted':
         console.log('🚫 Subscription cancelled:', event.data.object.id)
-        if (email) {
+        let cancelEmail = email;
+        // If email is missing, fetch customer from Stripe
+        if (!cancelEmail && event.data.object.customer) {
           try {
-            await cancelUserSubscription(email, event.type)
+            const customer = await stripe.customers.retrieve(event.data.object.customer);
+            if (typeof customer === 'object' && customer && 'email' in customer) {
+              cancelEmail = customer.email as string;
+              console.log('📧 Fetched email from Stripe customer:', cancelEmail);
+            }
+          } catch (err) {
+            console.error('❌ Failed to fetch customer from Stripe:', err);
+          }
+        }
+        if (cancelEmail) {
+          try {
+            await cancelUserSubscription(cancelEmail, event.type)
             console.log('✅ User subscription cancelled successfully')
           } catch {
             console.log('⚠️ Failed to cancel subscription but logged to file')

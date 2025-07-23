@@ -55,6 +55,7 @@ async function saveViaMCP(email: string) {
 }
 
 // Helper function to extract email from Stripe event
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function extractEmailFromEvent(event: { type: string; data: { object: any } }): Promise<string | null> {
   const { type, data } = event
   

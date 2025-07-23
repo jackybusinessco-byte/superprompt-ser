@@ -122,12 +122,17 @@ async function downgradeUserToNonPro(email: string, eventType: string) {
     
     if (error) {
       console.error('❌ Failed to downgrade user in Supabase:', error)
+      console.error('Downgrade error details:', {
+        message: error.message,
+        details: error.details,
+        code: error.code
+      })
       
       // Log to file as backup
       await logEmailToFile(`${email} (DOWNGRADE)`, eventType)
       throw error
     } else {
-      console.log('✅ User downgraded in Supabase:', data)
+      console.log('✅ User successfully downgraded in Supabase:', data)
       return data
     }
   } catch (error) {
@@ -168,7 +173,7 @@ async function saveUserToSupabase(email: string, eventType: string) {
     
     // If insert fails due to duplicate, try update
     if (error && error.code === '23505') {
-      console.log('🔄 Email exists, updating instead...')
+      console.log('🔄 Email exists, updating existing user to pro...')
       const { data: updateData, error: updateError } = await supabase
         .from('Users')
         .update({ isPro: true })
@@ -176,9 +181,11 @@ async function saveUserToSupabase(email: string, eventType: string) {
         .select()
         
       if (updateError) {
+        console.error('❌ Failed to update existing user:', updateError)
         throw updateError
       }
       
+      console.log('✅ Existing user updated to pro:', updateData)
       return updateData
     }
 

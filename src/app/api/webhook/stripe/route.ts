@@ -4,6 +4,11 @@ import { appendFile } from 'fs/promises'
 import { join } from 'path'
 import Stripe from 'stripe'
 
+// Initialize Stripe with secret key
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-06-30.basil',
+})
+
 
 // Helper function to log email to file as backup
 async function logEmailToFile(email: string, eventType: string) {
@@ -87,10 +92,31 @@ async function extractEmailFromEvent(event: { type: string; data: { object: any 
       
     case 'customer.subscription.deleted':
     case 'customer.subscription.updated':
-      // Handle subscription events - need to get customer email
-      console.log('🔍 Subscription event - customer ID:', data.object.customer)
-      // For subscription events, we typically need to fetch customer details from Stripe API
-      // For now, try to find email in the object or use customer ID
+      // Handle subscription events - fetch customer email from Stripe API
+      const customerId = data.object.customer
+      console.log('🔍 Subscription event - customer ID:', customerId)
+      
+      if (customerId) {
+        try {
+          console.log('🔍 Fetching customer details from Stripe...')
+          const customer = await stripe.customers.retrieve(customerId)
+          
+          // Check if customer is not deleted and has email
+          if (!customer.deleted && customer.email) {
+            console.log('✅ Found customer email:', customer.email)
+            return customer.email
+          } else {
+            console.log('⚠️ Customer is deleted or has no email')
+            return null
+          }
+        } catch (error) {
+          console.error('❌ Failed to fetch customer from Stripe:', error)
+          // Fallback to trying metadata if Stripe fetch fails
+          return data.object.metadata?.email || null
+        }
+      }
+      
+      // Fallback if no customer ID
       return data.object.customer_email || 
              data.object.metadata?.email ||
              null
@@ -236,11 +262,6 @@ async function saveUserToSupabase(email: string, eventType: string) {
   }
 }
 
-// Initialize Stripe with secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-06-30.basil',
-})
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text()
@@ -358,22 +379,9 @@ export async function POST(request: NextRequest) {
         
       case 'customer.subscription.deleted':
         console.log('🚫 Subscription cancelled:', event.data.object.id)
-        let cancelEmail = email;
-        // If email is missing, fetch customer from Stripe
-        if (!cancelEmail && event.data.object.customer) {
+        if (email) {
           try {
-            const customer = await stripe.customers.retrieve(event.data.object.customer);
-            if (typeof customer === 'object' && customer && 'email' in customer) {
-              cancelEmail = customer.email as string;
-              console.log('📧 Fetched email from Stripe customer:', cancelEmail);
-            }
-          } catch (err) {
-            console.error('❌ Failed to fetch customer from Stripe:', err);
-          }
-        }
-        if (cancelEmail) {
-          try {
-            await cancelUserSubscription(cancelEmail, event.type)
+            await cancelUserSubscription(email, event.type)
             console.log('✅ User subscription cancelled successfully')
           } catch {
             console.log('⚠️ Failed to cancel subscription but logged to file')

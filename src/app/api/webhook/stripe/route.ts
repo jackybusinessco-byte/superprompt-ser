@@ -83,6 +83,13 @@ async function extractEmailFromEvent(event: { type: string; data: { object: any 
       // Handle invoice payments
       return data.object.customer_email || null
       
+    case 'customer.subscription.deleted':
+    case 'customer.subscription.updated':
+      // For subscription events, try to get email from customer object
+      return data.object.customer?.email || 
+             data.object.metadata?.email ||
+             null
+      
     default:
       console.log('🔍 Attempting to extract email from unknown event type:', type)
       // Try common email fields
@@ -91,6 +98,49 @@ async function extractEmailFromEvent(event: { type: string; data: { object: any 
              data.object?.billing_details?.email || 
              data.object?.customer_details?.email || 
              null
+  }
+}
+
+// Helper function to downgrade user to non-pro
+async function downgradeUserToNonPro(email: string, eventType: string) {
+  try {
+    console.log('📉 Downgrading user to non-pro:', email)
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      console.error('❌ Invalid email format:', email)
+      return null
+    }
+    
+    // Update user to non-pro in Supabase
+    const { data, error } = await supabase
+      .from('Users')
+      .update({ isPro: false })
+      .eq('email', email)
+      .select()
+    
+    if (error) {
+      console.error('❌ Failed to downgrade user in Supabase:', error)
+      
+      // Log to file as backup
+      await logEmailToFile(`${email} (DOWNGRADE)`, eventType)
+      throw error
+    } else {
+      console.log('✅ User downgraded in Supabase:', data)
+      return data
+    }
+  } catch (error) {
+    console.error('❌ Error downgrading user:', error)
+    
+    // Always try to log to file as backup
+    try {
+      await logEmailToFile(`${email} (DOWNGRADE)`, eventType)
+    } catch (fileError) {
+      console.error('Failed to save downgrade to backup file:', fileError)
+    }
+    
+    throw error
   }
 }
 
@@ -285,6 +335,44 @@ export async function POST(request: NextRequest) {
           }
         } else {
           console.warn('⚠️ No email found in invoice.payment_succeeded event')
+        }
+        break
+        
+      case 'customer.subscription.deleted':
+        console.log('📉 Customer subscription deleted:', event.data.object.id)
+        if (email) {
+          try {
+            await downgradeUserToNonPro(email, event.type)
+          } catch {
+            console.log('⚠️ Downgrade failed but logged to file')
+          }
+        } else {
+          console.warn('⚠️ No email found in subscription.deleted event - check customer ID:', event.data.object.customer)
+        }
+        break
+        
+      case 'customer.subscription.updated':
+        console.log('🔄 Customer subscription updated:', event.data.object.id)
+        const subscriptionStatus = event.data.object.status
+        
+        if (email) {
+          if (subscriptionStatus === 'canceled' || subscriptionStatus === 'unpaid' || subscriptionStatus === 'past_due') {
+            console.log('📉 Subscription inactive, downgrading user')
+            try {
+              await downgradeUserToNonPro(email, event.type)
+            } catch {
+              console.log('⚠️ Downgrade failed but logged to file')
+            }
+          } else if (subscriptionStatus === 'active') {
+            console.log('📈 Subscription active, upgrading user')
+            try {
+              await saveUserToSupabase(email, event.type)
+            } catch {
+              console.log('⚠️ Upgrade failed but logged to file')
+            }
+          }
+        } else {
+          console.warn('⚠️ No email found in subscription.updated event - check customer ID:', event.data.object.customer)
         }
         break
         

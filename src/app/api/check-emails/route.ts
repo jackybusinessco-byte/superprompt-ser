@@ -18,7 +18,7 @@ export async function GET() {
         count: emails.length
       })
       
-    } catch (fileError) {
+    } catch {
       return NextResponse.json({
         success: true,
         message: 'No emails logged yet',

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { writeFile, appendFile } from 'fs/promises'
+import { appendFile } from 'fs/promises'
 import { join } from 'path'
 
 // Helper function to log email to file as backup
@@ -55,7 +55,7 @@ async function saveViaMCP(email: string) {
 }
 
 // Helper function to extract email from Stripe event
-async function extractEmailFromEvent(event: any): Promise<string | null> {
+async function extractEmailFromEvent(event: { type: string; data: { object: any } }): Promise<string | null> {
   const { type, data } = event
   
   // Try to get email from different event types
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
         if (email) {
           try {
             await saveUserToSupabase(email, event.type)
-          } catch (error) {
+          } catch {
             console.log('⚠️ All storage methods failed but email logged to file')
           }
         } else {
@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
         if (email) {
           try {
             await saveUserToSupabase(email, event.type)
-          } catch (error) {
+          } catch {
             console.log('⚠️ All storage methods failed but email logged to file')
           }
         } else {
@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
         if (email) {
           try {
             await saveUserToSupabase(email, event.type)
-          } catch (error) {
+          } catch {
             console.log('⚠️ All storage methods failed but email logged to file')
           }
         } else {
@@ -279,7 +279,7 @@ export async function POST(request: NextRequest) {
         if (email) {
           try {
             await saveUserToSupabase(email, event.type)
-          } catch (error) {
+          } catch {
             console.log('⚠️ All storage methods failed but email logged to file')
           }
         } else {
@@ -294,7 +294,7 @@ export async function POST(request: NextRequest) {
           console.log('🔍 Found email in unhandled event, attempting to save:', email)
           try {
             await saveUserToSupabase(email, event.type)
-          } catch (error) {
+          } catch {
             console.log('⚠️ All storage methods failed but email logged to file')
           }
         }

@@ -5,8 +5,8 @@ export async function GET() {
   try {
     console.log('🔍 Debug: Testing Supabase connection...')
     
-    const supabaseUrl = 'https://bjkzknxapkbsunrsmoic.supabase.co'
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqa3prbnhhcGtic3VucnNtb2ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MjczNzgsImV4cCI6MjA2ODEwMzM3OH0.9Y53pbeHUZZeTpDBz3-xePlq0V7-eKdfdpz3I8XCzZM'
+    const supabaseUrl = process.env.SUPABASE_URL!
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
     
     console.log('🔍 Debug: URL:', supabaseUrl)
     console.log('🔍 Debug: Key length:', supabaseKey.length)
@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
     const { email } = await request.json()
     console.log('🔍 Debug: Attempting to save:', email)
     
-    const supabaseUrl = 'https://bjkzknxapkbsunrsmoic.supabase.co'
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqa3prbnhhcGtic3VucnNtb2ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MjczNzgsImV4cCI6MjA2ODEwMzM3OH0.9Y53pbeHUZZeTpDBz3-xePlq0V7-eKdfdpz3I8XCzZM'
+    const supabaseUrl = process.env.SUPABASE_URL!
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
     
     const supabase = createClient(supabaseUrl, supabaseKey)
 

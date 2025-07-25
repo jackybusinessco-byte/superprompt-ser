@@ -5,9 +5,9 @@ export async function GET() {
     console.log('🔍 Environment Debug Check')
     
     const hasSupabaseUrl = !!process.env.SUPABASE_URL
-    const hasSupabaseKey = !!process.env.SUPABASE_ANON_KEY
+    const hasSupabaseKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY
     const supabaseUrlLength = process.env.SUPABASE_URL?.length || 0
-    const supabaseKeyLength = process.env.SUPABASE_ANON_KEY?.length || 0
+    const supabaseKeyLength = process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0
     
     return NextResponse.json({
       success: true,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, isPro = true } = await request.json()
+    const { email, firstName, isPro = true } = await request.json()
     
     if (!email) {
       return NextResponse.json({ 
@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
     
     const logEntry = {
       email,
+      firstName,
       isPro,
       timestamp: new Date().toISOString(),
       method: 'direct-insert',

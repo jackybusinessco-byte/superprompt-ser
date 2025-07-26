@@ -1,24 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+
+// Create Supabase client with proper error handling
+function createSupabaseClient() {
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+
+  return createClient(supabaseUrl, supabaseKey)
+}
 
 /**
  * Check if a user with the given email already exists in the database
+ * @param {string} email - The email address to check
+ * @returns {Promise<boolean>} - True if user exists, false otherwise
  */
 async function checkEmailExists(email: string): Promise<boolean> {
   try {
+    const supabase = createSupabaseClient()
+    
+    console.log('Checking if email exists:', email)
+    
     const { data, error } = await supabase
       .from('Users')
       .select('email')
       .eq('email', email)
       .single()
 
-    if (error && error.code !== 'PGRST116') {
-      // PGRST116 is "not found" error, which is expected when email doesn't exist
-      console.error('Error checking email existence:', error)
-      throw error
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // PGRST116 is "not found" error, which means email doesn't exist
+        console.log('Email does not exist:', email)
+        return false
+      } else {
+        console.error('Error checking email existence:', error)
+        throw error
+      }
     }
 
-    return !!data // Returns true if data exists, false if not found
+    console.log('Email exists:', email)
+    return !!data // Returns true if data exists
   } catch (error) {
     console.error('Error in checkEmailExists:', error)
     throw error
@@ -27,6 +51,8 @@ async function checkEmailExists(email: string): Promise<boolean> {
 
 /**
  * Hash an email address using a simple hash function
+ * @param {string} email - The email address to hash
+ * @returns {string} - The hashed email
  */
 function hashEmail(email: string): string {
   let hash = 0
@@ -43,9 +69,14 @@ function hashEmail(email: string): string {
 
 /**
  * Sign up a new user with email and password
+ * @param {string} email - The user's email address
+ * @param {string} password - The user's password (will be stored as-is, not hashed)
+ * @returns {Promise<Object>} - Result object with success status and message
  */
 async function signUpUser(email: string, password: string) {
   try {
+    console.log('Starting signup process for:', email)
+    
     // First, check if user already exists
     const userExists = await checkEmailExists(email)
     
@@ -60,18 +91,25 @@ async function signUpUser(email: string, password: string) {
 
     // Hash the email for storage
     const hashedEmail = hashEmail(email)
+    console.log('Email hashed successfully')
     
-    // Store user in database
+    // Create Supabase client
+    const supabase = createSupabaseClient()
+    
+    // Store user in database with correct column names
+    const userData = {
+      email: email,
+      password: password, // Store password as-is (not hashed as requested)
+      'Encrypted Email': hashedEmail,
+      isPro: false // Default to non-pro user
+    }
+    
+    console.log('Attempting to insert user data:', { email, hashedEmail, isPro: false })
+    
     const { data, error } = await supabase
       .from('Users')
-      .insert([
-        {
-          email: email,
-          'Hashed Password': password, // Store password as-is (not hashed as requested)
-          'Encrypted Email': hashedEmail,
-          isPro: false // Default to non-pro user
-        }
-      ])
+      .insert([userData])
+      .select()
 
     if (error) {
       console.error('Error inserting user:', error)
@@ -101,17 +139,23 @@ async function signUpUser(email: string, password: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('Signup API endpoint called')
+    
     // Check if environment variables are set
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       console.error('Missing Supabase environment variables')
+      console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'Set' : 'Missing')
+      console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing')
       return NextResponse.json(
-        { success: false, message: 'Server configuration error' },
+        { success: false, message: 'Server configuration error - Missing Supabase credentials' },
         { status: 500 }
       )
     }
 
     const body = await request.json()
     const { email, password } = body
+
+    console.log('Received signup request for email:', email)
 
     if (!email || !password) {
       return NextResponse.json(
@@ -123,17 +167,17 @@ export async function POST(request: NextRequest) {
     const result = await signUpUser(email, password)
     
     if (result.success) {
+      console.log('Signup successful for:', email)
       return NextResponse.json(result, { status: 201 })
     } else {
+      console.log('Signup failed for:', email, 'Reason:', result.message)
       return NextResponse.json(result, { status: 400 })
     }
   } catch (error) {
     console.error('Error in signup API:', error)
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
+      { success: false, message: 'Internal server error', error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
-}
-
-// Remove the GET endpoint for security - no more exposing all users! 
+} 

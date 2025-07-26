@@ -53,6 +53,7 @@
             cursor: pointer;
             font-size: 16px;
             margin-right: 10px;
+            margin-bottom: 10px;
         }
         button:hover {
             background-color: #0056b3;
@@ -60,6 +61,12 @@
         button:disabled {
             background-color: #ccc;
             cursor: not-allowed;
+        }
+        .test-btn {
+            background-color: #28a745;
+        }
+        .test-btn:hover {
+            background-color: #218838;
         }
         .result {
             margin-top: 20px;
@@ -95,6 +102,11 @@
             font-size: 14px;
             color: #666;
         }
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -112,7 +124,10 @@
                 <input type="password" id="password" name="password" required placeholder="Enter your password">
             </div>
             
-            <button type="submit" id="signupBtn">Sign Up</button>
+            <div class="button-group">
+                <button type="submit" id="signupBtn">Sign Up</button>
+                <button type="button" id="testDbBtn" class="test-btn">Test Database Connection</button>
+            </div>
         </form>
         
         <div id="result"></div>
@@ -121,12 +136,20 @@
             <strong>Note:</strong> This is a test page for the signup functionality. 
             If you encounter "Server configuration error", it means the Supabase environment variables 
             need to be configured in your deployment platform (Vercel, etc.).
+            <br><br>
+            <strong>Debug Steps:</strong>
+            <ol>
+                <li>Click "Test Database Connection" to check if your environment variables are set correctly</li>
+                <li>If the test fails, set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your Vercel environment variables</li>
+                <li>Try signing up with a new email address</li>
+            </ol>
         </div>
     </div>
 
     <script>
         const signupForm = document.getElementById('signupForm');
         const signupBtn = document.getElementById('signupBtn');
+        const testDbBtn = document.getElementById('testDbBtn');
         const resultDiv = document.getElementById('result');
 
         function showResult(message, type = 'info') {
@@ -135,10 +158,13 @@
 
         function setLoading(isLoading) {
             signupBtn.disabled = isLoading;
+            testDbBtn.disabled = isLoading;
             if (isLoading) {
                 signupBtn.textContent = 'Signing Up...';
+                testDbBtn.textContent = 'Testing...';
             } else {
                 signupBtn.textContent = 'Sign Up';
+                testDbBtn.textContent = 'Test Database Connection';
             }
         }
 
@@ -171,11 +197,37 @@
                     showResult(`✅ ${result.message}`, 'success');
                     signupForm.reset();
                 } else {
-                    if (result.message === 'Server configuration error') {
+                    if (result.message === 'Server configuration error - Missing Supabase credentials') {
                         showResult(`❌ ${result.message} - Please check environment variables in deployment`, 'warning');
                     } else {
                         showResult(`❌ ${result.message}`, 'error');
                     }
+                }
+            } catch (error) {
+                showResult(`❌ Network error: ${error.message}`, 'error');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // Handle database test button
+        testDbBtn.addEventListener('click', async () => {
+            setLoading(true);
+            
+            try {
+                const response = await fetch('/api/test-db', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showResult(`✅ ${result.message}<br>User count: ${result.userCount}<br>Environment: ${JSON.stringify(result.environment)}`, 'success');
+                } else {
+                    showResult(`❌ ${result.message}<br>Details: ${JSON.stringify(result)}`, 'error');
                 }
             } catch (error) {
                 showResult(`❌ Network error: ${error.message}`, 'error');

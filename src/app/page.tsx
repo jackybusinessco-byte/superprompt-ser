@@ -49,6 +49,12 @@ export default function Home() {
           >
             Read our docs
           </a>
+          <a
+            className="rounded-full border border-solid border-blue-500 bg-blue-600 text-white transition-colors flex items-center justify-center hover:bg-blue-700 hover:border-blue-600 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto"
+            href="/signup-test.html"
+          >
+            🧪 Test Signup
+          </a>
         </div>
       </main>
       <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">

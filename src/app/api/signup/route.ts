@@ -101,6 +101,15 @@ async function signUpUser(email: string, password: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if environment variables are set
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Missing Supabase environment variables')
+      return NextResponse.json(
+        { success: false, message: 'Server configuration error' },
+        { status: 500 }
+      )
+    }
+
     const body = await request.json()
     const { email, password } = body
 
@@ -127,26 +136,4 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
-  try {
-    const { data, error } = await supabase
-      .from('Users')
-      .select('*')
-
-    if (error) {
-      console.error('Error fetching users:', error)
-      return NextResponse.json(
-        { success: false, message: 'Failed to fetch users' },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({ success: true, users: data })
-  } catch (error) {
-    console.error('Error in get users API:', error)
-    return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-} 
+// Remove the GET endpoint for security - no more exposing all users! 

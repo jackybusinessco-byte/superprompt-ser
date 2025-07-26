@@ -5,9 +5,8 @@ import { useState } from 'react'
 export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [result, setResult] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null)
+  const [result, setResult] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
   const [loading, setLoading] = useState(false)
-  const [users, setUsers] = useState<any[]>([])
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,36 +34,14 @@ export default function SignupPage() {
         setEmail('')
         setPassword('')
       } else {
-        setResult({ message: `❌ ${data.message}`, type: 'error' })
-      }
-    } catch (error) {
-      setResult({ message: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`, type: 'error' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadUsers = async () => {
-    setLoading(true)
-    
-    try {
-      const response = await fetch('/api/signup', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+        if (data.message === 'Server configuration error') {
+          setResult({ message: `❌ ${data.message} - Please check environment variables in deployment`, type: 'warning' })
+        } else {
+          setResult({ message: `❌ ${data.message}`, type: 'error' })
         }
-      })
-
-      const data = await response.json()
-      
-      if (data.success) {
-        setUsers(data.users || [])
-        setResult({ message: `✅ Loaded ${data.users?.length || 0} users`, type: 'success' })
-      } else {
-        setResult({ message: `❌ ${data.message}`, type: 'error' })
       }
     } catch (error) {
-      setResult({ message: `❌ Error loading users: ${error instanceof Error ? error.message : 'Unknown error'}`, type: 'error' })
+      setResult({ message: `❌ Network error: ${error instanceof Error ? error.message : 'Unknown error'}`, type: 'error' })
     } finally {
       setLoading(false)
     }
@@ -109,53 +86,31 @@ export default function SignupPage() {
               />
             </div>
             
-            <div className="flex space-x-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400"
-              >
-                {loading ? 'Signing Up...' : 'Sign Up'}
-              </button>
-              
-              <button
-                type="button"
-                onClick={loadUsers}
-                disabled={loading}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:bg-gray-400"
-              >
-                {loading ? 'Loading...' : 'Load Users'}
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400"
+            >
+              {loading ? 'Signing Up...' : 'Sign Up'}
+            </button>
           </form>
           
           {result && (
             <div className={`mt-6 p-4 rounded-md ${
               result.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' :
               result.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
+              result.type === 'warning' ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' :
               'bg-blue-50 text-blue-800 border border-blue-200'
             }`}>
               {result.message}
             </div>
           )}
           
-          {users.length > 0 && (
-            <div className="mt-8">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">All Users in Database:</h3>
-              <div className="space-y-3">
-                {users.map((user, index) => (
-                  <div key={index} className="bg-gray-50 p-4 rounded-md border-l-4 border-blue-500">
-                    <div className="text-sm">
-                      <strong>Email:</strong> {user.email}<br />
-                      <strong>Password:</strong> {user['Hashed Password']}<br />
-                      <strong>Hashed Email:</strong> {user['Encrypted Email']}<br />
-                      <strong>Pro User:</strong> {user.isPro ? 'Yes' : 'No'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <div className="mt-6 p-4 bg-gray-50 rounded-md text-sm text-gray-600">
+            <strong>Note:</strong> This is a test page for the signup functionality. 
+            If you encounter "Server configuration error", it means the Supabase environment variables 
+            need to be configured in your deployment platform (Vercel, etc.).
+          </div>
         </div>
       </div>
     </div>

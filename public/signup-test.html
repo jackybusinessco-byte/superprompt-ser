@@ -82,27 +82,18 @@
             color: #0c5460;
             border: 1px solid #bee5eb;
         }
-        .users-list {
-            margin-top: 30px;
-            background: #f8f9fa;
-            padding: 20px;
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .help-text {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
             border-radius: 5px;
-        }
-        .users-list h3 {
-            margin-top: 0;
-            color: #333;
-        }
-        .user-item {
-            background: white;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 3px;
-            border-left: 4px solid #007bff;
-        }
-        .loading {
-            text-align: center;
+            font-size: 14px;
             color: #666;
-            font-style: italic;
         }
     </style>
 </head>
@@ -122,24 +113,21 @@
             </div>
             
             <button type="submit" id="signupBtn">Sign Up</button>
-            <button type="button" id="loadUsersBtn">Load All Users</button>
         </form>
         
         <div id="result"></div>
         
-        <div class="users-list" id="usersList" style="display: none;">
-            <h3>All Users in Database:</h3>
-            <div id="usersContent"></div>
+        <div class="help-text">
+            <strong>Note:</strong> This is a test page for the signup functionality. 
+            If you encounter "Server configuration error", it means the Supabase environment variables 
+            need to be configured in your deployment platform (Vercel, etc.).
         </div>
     </div>
 
     <script>
         const signupForm = document.getElementById('signupForm');
         const signupBtn = document.getElementById('signupBtn');
-        const loadUsersBtn = document.getElementById('loadUsersBtn');
         const resultDiv = document.getElementById('result');
-        const usersList = document.getElementById('usersList');
-        const usersContent = document.getElementById('usersContent');
 
         function showResult(message, type = 'info') {
             resultDiv.innerHTML = `<div class="result ${type}">${message}</div>`;
@@ -147,13 +135,10 @@
 
         function setLoading(isLoading) {
             signupBtn.disabled = isLoading;
-            loadUsersBtn.disabled = isLoading;
             if (isLoading) {
                 signupBtn.textContent = 'Signing Up...';
-                loadUsersBtn.textContent = 'Loading...';
             } else {
                 signupBtn.textContent = 'Sign Up';
-                loadUsersBtn.textContent = 'Load All Users';
             }
         }
 
@@ -186,45 +171,14 @@
                     showResult(`✅ ${result.message}`, 'success');
                     signupForm.reset();
                 } else {
-                    showResult(`❌ ${result.message}`, 'error');
-                }
-            } catch (error) {
-                showResult(`❌ Error: ${error.message}`, 'error');
-            } finally {
-                setLoading(false);
-            }
-        });
-
-        // Handle load users button
-        loadUsersBtn.addEventListener('click', async () => {
-            setLoading(true);
-            
-            try {
-                const response = await fetch('/api/signup', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
+                    if (result.message === 'Server configuration error') {
+                        showResult(`❌ ${result.message} - Please check environment variables in deployment`, 'warning');
+                    } else {
+                        showResult(`❌ ${result.message}`, 'error');
                     }
-                });
-
-                const result = await response.json();
-                
-                if (result.success && result.users && result.users.length > 0) {
-                    usersList.style.display = 'block';
-                    usersContent.innerHTML = result.users.map(user => `
-                        <div class="user-item">
-                            <strong>Email:</strong> ${user.email}<br>
-                            <strong>Password:</strong> ${user['Hashed Password']}<br>
-                            <strong>Hashed Email:</strong> ${user['Encrypted Email']}<br>
-                            <strong>Pro User:</strong> ${user.isPro ? 'Yes' : 'No'}
-                        </div>
-                    `).join('');
-                } else {
-                    usersList.style.display = 'block';
-                    usersContent.innerHTML = '<div class="loading">No users found in the database</div>';
                 }
             } catch (error) {
-                showResult(`❌ Error loading users: ${error.message}`, 'error');
+                showResult(`❌ Network error: ${error.message}`, 'error');
             } finally {
                 setLoading(false);
             }

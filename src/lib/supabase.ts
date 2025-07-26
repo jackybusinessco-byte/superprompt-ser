@@ -8,8 +8,5 @@ export const supabase = createClient(supabaseUrl, supabaseKey)
 // Type definitions for our database
 export interface User {
   email: string
-  firstName?: string
-  lastName?: string
-  fullName?: string
   isPro: boolean
 } 

@@ -61,12 +61,12 @@ async function saveViaMCP(email: string) {
   }
 }
 
-// Helper function to extract email and first name from Stripe event
+// Helper function to extract email from Stripe event
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function extractCustomerDataFromEvent(event: { type: string; data: { object: any } }): Promise<{ email: string | null; firstName: string | null }> {
+async function extractEmailFromEvent(event: { type: string; data: { object: any } }): Promise<string | null> {
   const { type, data } = event
   
-  // Try to get email and name from different event types
+  // Try to get email from different event types
   switch (type) {
     case 'payment_intent.succeeded':
     case 'payment_intent.created':
@@ -75,35 +75,20 @@ async function extractCustomerDataFromEvent(event: { type: string; data: { objec
         console.log('Found customer ID:', data.object.customer)
         // Note: In a real app, you'd need to fetch customer details from Stripe API
         // For now, check if receipt_email is available
-        return {
-          email: data.object.receipt_email || null,
-          firstName: data.object.billing_details?.name?.split(' ')[0] || null
-        }
+        return data.object.receipt_email || null
       }
-      return {
-        email: data.object.receipt_email || null,
-        firstName: data.object.billing_details?.name?.split(' ')[0] || null
-      }
+      return data.object.receipt_email || null
       
     case 'charge.succeeded':
     case 'charge.updated':
-      return {
-        email: data.object.billing_details?.email || data.object.receipt_email || null,
-        firstName: data.object.billing_details?.name?.split(' ')[0] || null
-      }
+      return data.object.billing_details?.email || data.object.receipt_email || null
       
     case 'checkout.session.completed':
-      return {
-        email: data.object.customer_details?.email || null,
-        firstName: data.object.customer_details?.name?.split(' ')[0] || null
-      }
+      return data.object.customer_details?.email || null
       
     case 'invoice.payment_succeeded':
       // Handle invoice payments
-      return {
-        email: data.object.customer_email || null,
-        firstName: null // Invoice payments might not have name
-      }
+      return data.object.customer_email || null
       
     case 'customer.subscription.deleted':
     case 'customer.subscription.updated':
@@ -119,47 +104,32 @@ async function extractCustomerDataFromEvent(event: { type: string; data: { objec
           // Check if customer is not deleted and has email
           if (!customer.deleted && customer.email) {
             console.log('✅ Found customer email:', customer.email)
-            return {
-              email: customer.email,
-              firstName: customer.name?.split(' ')[0] || null
-            }
+            return customer.email
           } else {
             console.log('⚠️ Customer is deleted or has no email')
-            return { email: null, firstName: null }
+            return null
           }
         } catch (error) {
           console.error('❌ Failed to fetch customer from Stripe:', error)
           // Fallback to trying metadata if Stripe fetch fails
-          return {
-            email: data.object.metadata?.email || null,
-            firstName: data.object.metadata?.firstName || null
-          }
+          return data.object.metadata?.email || null
         }
       }
       
       // Fallback if no customer ID
-      return {
-        email: data.object.customer_email || 
-               data.object.metadata?.email ||
-               null,
-        firstName: data.object.metadata?.firstName || null
-      }
+      return data.object.customer_email || 
+             data.object.metadata?.email ||
+             null
       
     default:
-      console.log('🔍 Attempting to extract data from unknown event type:', type)
+      console.log('🔍 Attempting to extract email from unknown event type:', type)
       // Try common email fields
-      return {
-        email: data.object?.receipt_email || 
-               data.object?.customer_email || 
-               data.object?.billing_details?.email || 
-               data.object?.customer_details?.email || 
-               data.object?.metadata?.email ||
-               null,
-        firstName: data.object?.billing_details?.name?.split(' ')[0] || 
-                  data.object?.customer_details?.name?.split(' ')[0] ||
-                  data.object?.metadata?.firstName ||
-                  null
-      }
+      return data.object?.receipt_email || 
+             data.object?.customer_email || 
+             data.object?.billing_details?.email || 
+             data.object?.customer_details?.email || 
+             data.object?.metadata?.email ||
+             null
   }
 }
 
@@ -213,10 +183,10 @@ async function cancelUserSubscription(email: string, eventType: string) {
   }
 }
 
-// Helper function to save user email and first name to Supabase
-async function saveUserToSupabase(email: string, firstName: string | null, eventType: string) {
+// Helper function to save user email to Supabase
+async function saveUserToSupabase(email: string, eventType: string) {
   try {
-    console.log('💾 Attempting to save user to Supabase:', { email, firstName })
+    console.log('💾 Attempting to save email to Supabase:', email)
     
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -225,21 +195,13 @@ async function saveUserToSupabase(email: string, firstName: string | null, event
       return null
     }
     
-    // Prepare user data
-    const userData: any = {
-      email: email,
-      isPro: true // Set to pro since they made a payment
-    }
-    
-    // Add firstName if available
-    if (firstName) {
-      userData.firstName = firstName
-    }
-    
     // Try to insert or update user in Supabase
     const { data, error } = await supabase
       .from('Users')
-      .insert(userData)
+      .insert({
+        email: email,
+        isPro: true // Set to pro since they made a payment
+      })
       .select()
       .maybeSingle()
     
@@ -248,7 +210,7 @@ async function saveUserToSupabase(email: string, firstName: string | null, event
       console.log('🔄 Email exists, updating instead...')
       const { data: updateData, error: updateError } = await supabase
         .from('Users')
-        .update(userData)
+        .update({ isPro: true })
         .eq('email', email)
         .select()
         
@@ -340,15 +302,12 @@ export async function POST(request: NextRequest) {
       } : 'No object data'
     })
 
-    // Extract email and first name from the event
-    const { email, firstName } = await extractCustomerDataFromEvent(event)
+    // Extract email from the event
+    const email = await extractEmailFromEvent(event)
     
-    // Log extracted data for debugging
+    // Log extracted email for debugging
     if (email) {
       console.log('📧 Extracted email:', email)
-      if (firstName) {
-        console.log('👤 Extracted first name:', firstName)
-      }
     } else {
       console.log('❌ No email extracted from event type:', event.type)
     }
@@ -359,7 +318,7 @@ export async function POST(request: NextRequest) {
         console.log('✅ PaymentIntent succeeded:', event.data.object.id)
         if (email) {
           try {
-            await saveUserToSupabase(email, firstName, event.type)
+            await saveUserToSupabase(email, event.type)
           } catch {
             console.log('⚠️ All storage methods failed but email logged to file')
           }
@@ -379,7 +338,7 @@ export async function POST(request: NextRequest) {
         console.log('💳 Charge succeeded:', event.data.object.id)
         if (email) {
           try {
-            await saveUserToSupabase(email, firstName, event.type)
+            await saveUserToSupabase(email, event.type)
           } catch {
             console.log('⚠️ All storage methods failed but email logged to file')
           }
@@ -396,7 +355,7 @@ export async function POST(request: NextRequest) {
         console.log('🛒 Checkout session completed:', event.data.object.id)
         if (email) {
           try {
-            await saveUserToSupabase(email, firstName, event.type)
+            await saveUserToSupabase(email, event.type)
           } catch {
             console.log('⚠️ All storage methods failed but email logged to file')
           }
@@ -409,7 +368,7 @@ export async function POST(request: NextRequest) {
         console.log('🧾 Invoice payment succeeded:', event.data.object.id)
         if (email) {
           try {
-            await saveUserToSupabase(email, firstName, event.type)
+            await saveUserToSupabase(email, event.type)
           } catch {
             console.log('⚠️ All storage methods failed but email logged to file')
           }
@@ -440,7 +399,7 @@ export async function POST(request: NextRequest) {
         if (email) {
           console.log('🔍 Found email in unhandled event, attempting to save:', email)
           try {
-            await saveUserToSupabase(email, firstName, event.type)
+            await saveUserToSupabase(email, event.type)
           } catch {
             console.log('⚠️ All storage methods failed but email logged to file')
           }

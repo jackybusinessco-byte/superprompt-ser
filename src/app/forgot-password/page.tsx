@@ -2,29 +2,28 @@
 
 import { useState } from 'react'
 
-export default function SignupPage() {
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [result, setResult] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!email || !password) {
-      setResult({ message: 'Please fill in all fields', type: 'error' })
+    if (!email) {
+      setResult({ message: 'Please enter your email address', type: 'error' })
       return
     }
     
     setLoading(true)
     
     try {
-      const response = await fetch('/api/signup', {
+      const response = await fetch('/api/forgot-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email })
       })
 
       const data = await response.json()
@@ -32,7 +31,6 @@ export default function SignupPage() {
       if (data.success) {
         setResult({ message: `✅ ${data.message}`, type: 'success' })
         setEmail('')
-        setPassword('')
       } else {
         if (data.message === 'Server configuration error') {
           setResult({ message: `❌ ${data.message} - Please check environment variables in deployment`, type: 'warning' })
@@ -52,10 +50,14 @@ export default function SignupPage() {
       <div className="max-w-md mx-auto">
         <div className="bg-white py-8 px-6 shadow rounded-lg">
           <h1 className="text-2xl font-bold text-center text-gray-900 mb-8">
-            User Signup Test
+            Forgot Password
           </h1>
           
-          <form onSubmit={handleSignup} className="space-y-6">
+          <p className="text-gray-600 text-center mb-6">
+            Enter your email address and we'll send you a link to reset your password.
+          </p>
+          
+          <form onSubmit={handleForgotPassword} className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email Address
@@ -71,27 +73,12 @@ export default function SignupPage() {
               />
             </div>
             
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your password"
-              />
-            </div>
-            
             <button
               type="submit"
               disabled={loading}
               className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400"
             >
-              {loading ? 'Signing Up...' : 'Sign Up'}
+              {loading ? 'Sending...' : 'Send Reset Link'}
             </button>
           </form>
           
@@ -106,18 +93,12 @@ export default function SignupPage() {
             </div>
           )}
           
-          <div className="mt-6 p-4 bg-gray-50 rounded-md text-sm text-gray-600">
-            <strong>Note:</strong> This is a test page for the signup functionality. 
-            If you encounter "Server configuration error", it means the Supabase environment variables 
-            need to be configured in your deployment platform (Vercel, etc.).
-          </div>
-          
-          <div className="mt-4 text-center">
+          <div className="mt-6 text-center">
             <a 
-              href="/forgot-password" 
+              href="/signup" 
               className="text-blue-600 hover:text-blue-500 text-sm"
             >
-              Forgot your password?
+              Back to Sign Up
             </a>
           </div>
         </div>

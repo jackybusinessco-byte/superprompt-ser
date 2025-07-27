@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { hashPassword } from '@/lib/password-utils'
 
 // Create Supabase client with proper error handling
 function createSupabaseClient() {
@@ -93,13 +94,51 @@ async function signUpUser(email: string, password: string) {
     const hashedEmail = hashEmail(email)
     console.log('Email hashed successfully')
     
-    // Create Supabase client
+    // Hash the password for storage
+    const hashedPassword = await hashPassword(password)
+    console.log('Password hashed successfully')
+    
+    // Create Supabase client for database operations
     const supabase = createSupabaseClient()
     
-    // Store user in database with correct column names
+    // Create Supabase client for Auth operations (using service role key for admin functions)
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing Supabase service role key for admin operations')
+      return {
+        success: false,
+        message: "Server configuration error - Missing Supabase service credentials",
+        error: "MISSING_SERVICE_VARS"
+      }
+    }
+    
+    const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey)
+    
+    // First, create user in Supabase Auth
+    console.log('Creating user in Supabase Auth:', email)
+    const { data: authData, error: authError } = await supabaseAuth.auth.admin.createUser({
+      email: email,
+      password: password,
+      email_confirm: true // Auto-confirm email for testing
+    })
+    
+    if (authError) {
+      console.error('Error creating user in Supabase Auth:', authError)
+      return {
+        success: false,
+        message: "Failed to create user account",
+        error: authError.message
+      }
+    }
+    
+    console.log('User created in Supabase Auth successfully:', authData.user?.id)
+    
+    // Store user in database with hashed password
     const userData = {
       email: email,
-      password: password, // Store password as-is (not hashed as requested)
+      password: hashedPassword, // Store hashed password
       'Encrypted Email': hashedEmail,
       isPro: false // Default to non-pro user
     }
@@ -113,6 +152,8 @@ async function signUpUser(email: string, password: string) {
 
     if (error) {
       console.error('Error inserting user:', error)
+      // If database insert fails, we should clean up the Auth user
+      // For now, just return the error
       return {
         success: false,
         message: "Failed to create user",

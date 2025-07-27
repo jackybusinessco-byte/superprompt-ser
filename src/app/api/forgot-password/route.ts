@@ -22,19 +22,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if Supabase environment variables are configured
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       console.error('Missing Supabase environment variables')
       return NextResponse.json(
-        { success: false, message: 'Server configuration error' },
+        { success: false, message: 'Server configuration error - Missing Supabase credentials' },
         { status: 500 }
       )
     }
 
-    // Create Supabase client with anon key for auth operations
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    // Create Supabase client with service role key for auth operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Get the base URL for the redirect
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
@@ -79,4 +79,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}

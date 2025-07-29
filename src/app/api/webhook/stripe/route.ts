@@ -279,13 +279,16 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    // Parse the webhook event
     let event
     try {
-      event = JSON.parse(body)
+      event = stripe.webhooks.constructEvent(
+        body,
+        signature,
+        process.env.STRIPE_WEBHOOK_SECRET!
+      )
     } catch (err) {
-      console.error('Failed to parse webhook body:', err)
-      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+      console.error("Webhook signature verification failed:", err)
+      return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
     }
 
     // Log the full event data for debugging

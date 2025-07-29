@@ -296,12 +296,12 @@ export async function POST(request: NextRequest) {
       type: event.type,
       id: event.id,
       data: event.data?.object ? {
-        id: event.data.object.id,
-        amount: event.data.object.amount,
-        currency: event.data.object.currency,
-        receipt_email: event.data.object.receipt_email,
-        customer: event.data.object.customer,
-        billing_details: event.data.object.billing_details
+        id: (event.data.object as any).id,
+        amount: (event.data.object as any).amount,
+        currency: (event.data.object as any).currency,
+        receipt_email: (event.data.object as any).receipt_email,
+        customer: (event.data.object as any).customer,
+        billing_details: (event.data.object as any).billing_details
       } : 'No object data'
     })
 
@@ -318,7 +318,7 @@ export async function POST(request: NextRequest) {
     // Handle different event types
     switch (event.type) {
       case 'payment_intent.succeeded':
-        console.log('✅ PaymentIntent succeeded:', event.data.object.id)
+        console.log('✅ PaymentIntent succeeded:', (event.data.object as any).id)
         if (email) {
           try {
             await saveUserToSupabase(email, event.type)
@@ -331,14 +331,14 @@ export async function POST(request: NextRequest) {
         break
         
       case 'payment_intent.created':
-        console.log('📝 PaymentIntent created:', event.data.object.id)
+        console.log('📝 PaymentIntent created:', (event.data.object as any).id)
         if (email) {
           console.log('📧 Email found on payment creation:', email)
         }
         break
         
       case 'charge.succeeded':
-        console.log('💳 Charge succeeded:', event.data.object.id)
+        console.log('💳 Charge succeeded:', (event.data.object as any).id)
         if (email) {
           try {
             await saveUserToSupabase(email, event.type)
@@ -351,11 +351,11 @@ export async function POST(request: NextRequest) {
         break
         
       case 'charge.updated':
-        console.log('🔄 Charge updated:', event.data.object.id)
+        console.log('🔄 Charge updated:', (event.data.object as any).id)
         break
         
       case 'checkout.session.completed':
-        console.log('🛒 Checkout session completed:', event.data.object.id)
+        console.log('🛒 Checkout session completed:', (event.data.object as any).id)
         if (email) {
           try {
             await saveUserToSupabase(email, event.type)
@@ -368,7 +368,7 @@ export async function POST(request: NextRequest) {
         break
         
       case 'invoice.payment_succeeded':
-        console.log('🧾 Invoice payment succeeded:', event.data.object.id)
+        console.log('🧾 Invoice payment succeeded:', (event.data.object as any).id)
         if (email) {
           try {
             await saveUserToSupabase(email, event.type)
@@ -381,7 +381,7 @@ export async function POST(request: NextRequest) {
         break
         
       case 'customer.subscription.deleted':
-        console.log('🚫 Subscription cancelled:', event.data.object.id)
+        console.log('🚫 Subscription cancelled:', (event.data.object as any).id)
         if (email) {
           try {
             await cancelUserSubscription(email, event.type)
@@ -391,7 +391,7 @@ export async function POST(request: NextRequest) {
           }
         } else {
           console.warn('⚠️ No email found in customer.subscription.deleted event')
-          console.log('🔍 Customer ID:', event.data.object.customer)
+          console.log('🔍 Customer ID:', (event.data.object as any).customer)
           console.log('🔍 Full subscription object:', JSON.stringify(event.data.object, null, 2))
         }
         break

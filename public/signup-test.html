@@ -139,7 +139,7 @@
             
             <div class="button-group">
                 <button type="submit" id="signupBtn">Sign Up</button>
-                <button type="button" id="testDbBtn" class="test-btn">Test Database Connection</button>
+                <span id="testDbBtn" style="color: #28a745; font-weight: 600; font-size: 16px;">Connected</span>
             </div>
         </form>
         
@@ -159,7 +159,7 @@
 
         function setLoading(isLoading) {
             signupBtn.disabled = isLoading;
-            testDbBtn.disabled = isLoading;
+            
             if (isLoading) {
                 signupBtn.textContent = 'Signing Up...';
                 testDbBtn.textContent = 'Testing...';
@@ -212,30 +212,6 @@
         });
 
         // Handle database test button
-        testDbBtn.addEventListener('click', async () => {
-            setLoading(true);
-            
-            try {
-                const response = await fetch('/api/test-db', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    showResult(`✅ ${result.message}<br>User count: ${result.userCount}<br>Environment: ${JSON.stringify(result.environment)}`, 'success');
-                } else {
-                    showResult(`❌ ${result.message}<br>Details: ${JSON.stringify(result)}`, 'error');
-                }
-            } catch (error) {
-                showResult(`❌ Network error: ${error.message}`, 'error');
-            } finally {
-                setLoading(false);
-            }
-        });
     </script>
 </body>
 </html> 

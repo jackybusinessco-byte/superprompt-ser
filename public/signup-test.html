@@ -149,7 +149,6 @@
     <script>
         const signupForm = document.getElementById('signupForm');
         const signupBtn = document.getElementById('signupBtn');
-        const testDbBtn = document.getElementById('testDbBtn');
         const resultDiv = document.getElementById('result');
 
         function showResult(message, type = 'info') {
@@ -158,16 +157,12 @@
 
         function setLoading(isLoading) {
             signupBtn.disabled = isLoading;
-            
             if (isLoading) {
-                signupBtn.textContent = 'Signing Up...';
-                testDbBtn.textContent = 'Testing...';
+                signupBtn.textContent = "Signing Up...";
             } else {
-                signupBtn.textContent = 'Sign Up';
-                testDbBtn.textContent = 'Test Database Connection';
+                signupBtn.textContent = "Sign Up";
             }
         }
-
         // Handle form submission
         signupForm.addEventListener('submit', async (e) => {
             e.preventDefault();

@@ -36,12 +36,7 @@ export async function GET() {
     
     return NextResponse.json({
       success: true,
-      message: 'Database connection successful',
-      userCount: count,
-      environment: {
-        supabaseUrl: supabaseUrl ? 'Set' : 'Missing',
-        supabaseKey: supabaseKey ? 'Set' : 'Missing'
-      }
+      message: "",
     })
     
   } catch (error) {
